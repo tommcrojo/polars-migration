@@ -173,13 +173,58 @@ Use these official Polars resources for accurate syntax and best practices:
 ## Phase 4: MIGRATE TO POLARS
 Apply these optimization rules during migration:
 
+### In-Place Migration (IMPORTANT)
+
+When the target is a file path (e.g. `some_pipeline.py`), you MUST:
+
+1. Rewrite the original file in-place to the final Polars implementation.
+2. Create exactly one backup of the original pandas file (recommended name pattern: `<original_stem>_pandas_backup.py`) unless the user already has git.
+3. Avoid leaving multiple alternative implementations around (do NOT create both `*_polars.py` and `*_polars_optimized.py`).
+
+The goal is that the user runs their original entrypoint filename and immediately experiences the performance improvement.
+
 ### Core Polars Optimization Rules:
 1. **Use lazy evaluation**: Replace `pl.read_csv()` with `pl.scan_csv()` + `.collect()`
 2. **Parallelize expressions**: Combine operations in single `with_columns(expr1, expr2, expr3)`
 3. **Window functions**: Replace `groupby().transform()` with `.with_columns(...over())`
 4. **No index operations**: Remove all `.loc`, `.iloc`, `reset_index()` calls
 5. **Strict typing**: Explicit type conversions (no auto float casting)
-6. **Streaming for large data**: Use `.collect(streaming=True)` if dataset > 1GB
+6. **Schema + projection pushdown** (big CSVs): provide explicit `schema`/`schema_overrides` and select only used columns early
+7. **Avoid expensive parsing when unnecessary**: if a timestamp string is only used to derive `YYYY-MM`, slice the string instead of parsing datetime
+8. **Streaming for large data**: Use `.collect(engine="streaming")` when the plan supports streaming and the dataset is large
+9. **Avoid redundant work**: don't compute the same expression twice; avoid creating intermediate columns that are never used downstream
+
+### When To Apply The “Big Dataset” Optimizations
+
+Apply rules (6)-(8) when any of the following are true:
+
+- Input is a CSV and `scan_csv(...)` is used AND the file is "large" (recommend heuristics: >= 50MB on disk OR >= 500k rows OR the pipeline is known to be production-scale).
+- The pipeline performs heavy operations that benefit from reduced IO and memory pressure (joins + group_by aggregations + window expressions).
+
+Do NOT apply these if they would change semantics or you cannot prove they are safe from the code/tests.
+
+**Schema + projection pushdown conditions:**
+
+- You can infer stable dtypes from:
+  - pandas `read_csv(..., dtype=...)` arguments, OR
+  - explicit casts in code (`astype`, `to_numeric`), OR
+  - usage patterns (IDs only compared/joined => integer; prices/amounts used in arithmetic => float; categorical strings => Utf8).
+- If you are unsure about a dtype, do not force it; prefer leaving inference on for that column.
+- Prefer `schema_overrides={...}` for a partial, safer schema when you can only confidently type a subset of columns (especially numeric/join-key columns).
+- Always project (`select(...)`) only the columns referenced downstream (filters/joins/aggs/outputs).
+
+**Avoid datetime parsing conditions:**
+
+- The source timestamp column is a string that appears ISO-like (`YYYY-MM-...`) AND the code only needs a month key like `YYYY-MM`.
+- Safe replacement patterns:
+  - pandas: `pd.to_datetime(df["ts"]).dt.to_period("M").astype(str)`
+  - polars (fast path): `pl.col("ts").str.slice(0, 7).alias("month")`
+- If the code uses timezone-aware logic, day-level filters, date arithmetic, or anything beyond extracting month, DO parse to a datetime.
+
+**Streaming collect conditions:**
+
+- Prefer: `.collect(engine="streaming")` (NOT `streaming=True`, which is deprecated in recent Polars).
+- Use only when the query plan is streaming-compatible; if streaming errors or regresses performance, fall back to `.collect()`.
 
 ### Migration Mappings:
 | Pandas | Polars |
@@ -197,11 +242,24 @@ Apply these optimization rules during migration:
 ### Migration Steps:
 1. Replace pandas imports: `import polars as pl`
 2. Convert read operations to lazy: `scan_csv()` instead of `read_csv()`
-3. Rewrite filtering with `pl.col()` expressions
-4. Combine sequential operations into parallel expressions
-5. Replace groupby+transform with `.over()` patterns
-6. Add `.collect()` at the end of lazy chains
-7. Ensure proper type handling (no auto-coercion assumptions)
+3. If migrating CSV reads for large datasets:
+   - Add `schema`/`schema_overrides` where safe
+   - Add early `.select(...)` to keep only referenced columns
+4. Rewrite filtering with `pl.col()` expressions and filter early to reduce volume
+5. Combine sequential operations into parallel expressions
+6. Replace groupby+transform with `.over()` patterns
+   - IMPORTANT: avoid recomputing window stats; compute mean/std once (temp cols) and reuse
+7. Drop columns as soon as they are no longer needed (e.g. raw timestamp after `month` derived)
+   - Also drop unused intermediate columns (e.g. `gross`) if they are not referenced later
+8. Add `.collect()` at the end of lazy chains
+   - For large datasets, prefer `.collect(engine="streaming")` if supported
+9. Ensure proper type handling (no auto-coercion assumptions)
+
+### Output File Rules
+
+- If migrating a single file, the final Polars code MUST be written back to that same file path.
+- If you create a backup, ensure the backup is not imported by the rest of the project (it is only for reference).
+- Only create extra helper scripts (benchmarks/validation) if needed for benchmarking/correctness; keep them minimal.
 
 ## Phase 5: BENCHMARK OPTIMIZED CODE
 1. Run same benchmark on Polars code
@@ -513,7 +571,7 @@ Next steps:
 ## Important Notes:
 - Always maintain a backup or work in git branch
 - Polars syntax is stricter than pandas - type errors will surface
-- Large datasets (>RAM) benefit from streaming: `.collect(streaming=True)`
+- Large datasets (>RAM) benefit from streaming: `.collect(engine="streaming")`
 - If code uses pandas-specific features (MultiIndex, plotting), flag for manual review
 - Update imports: `polars` should be in requirements.txt
 - The command focuses on common pandas operations; complex edge cases may require manual review

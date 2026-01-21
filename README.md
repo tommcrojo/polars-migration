@@ -18,11 +18,37 @@ This Claude Code command automatically:
 
 All in one command.
 
-### Real Results
+### Results Observed
 
 - **8.2x faster** on data aggregations
 - **50% lower** API latency
-- **25% cost savings** on cloud compute
+- **10-12x faster** on large CSV ETL (observed in the included smoke tests)
+
+#### What 10-12x Means For Cloud Cost
+
+If your pipeline is primarily compute-bound and billed roughly proportional to runtime (EC2/VMs, Batch jobs, container tasks), a **10-12x speedup** maps to about:
+
+- `10x` -> **~90.0%** less compute time
+- `12x` -> **~91.7%** less compute time
+
+Back-of-napkin example (on-demand, 24/7, ~730 hours/month; compute only):
+
+| Provider | Example VM | On-demand $/hour | Approx $/month | $/month @ 10x | $/month @ 12x |
+|---|---|---:|---:|---:|---:|
+| AWS | EC2 `m7i.xlarge` | $0.2016 | $147.17 | $14.72 | $12.26 |
+| Azure | `Standard_D4as_v5` (Linux, East US) | $0.172 | $125.56 | $12.56 | $10.46 |
+| GCP | Compute Engine `e2-standard-4` | $0.13402284 | $97.84 | $9.78 | $8.15 |
+
+Pricing sources (as-of 2026-01-21; region/OS/pricing model changes will affect exact numbers):
+
+- AWS EC2 `m7i.xlarge`: https://instances.vantage.sh/aws/ec2/m7i.xlarge
+- Azure retail price API (`Standard_D4as_v5`): https://prices.azure.com/api/retail/prices
+- GCP `e2-standard-4` pricing table: https://cloud.google.com/compute/all-pricing
+
+Notes:
+
+- These estimates assume you can actually downsize/scale-to-zero or reduce instance-hours. If you are provisioned 24/7 and don’t change instance count, you get latency/headroom, not savings.
+- Storage, network egress, managed service fees, and minimum billing granularity can reduce realized savings.
 
 ---
 
@@ -63,6 +89,24 @@ cd your-project
 # Run the migration command
 claude /pandas-polars-migration your_script.py
 ```
+
+### OpenCode Usage (Recommended If You Hit Claude Limits)
+
+This repo also ships an OpenCode subagent at `pandas-polars-migration-claude/.opencode/agent/pandas-polars-migration.md`.
+
+Run it with the Z.ai Coding Plan GLM 4.7 model:
+
+```bash
+opencode run \
+  --model zai-coding-plan/glm-4.7 \
+  --agent pandas-polars-migration \
+  "Migrate this path in-place: your_script.py"
+```
+
+Notes:
+
+- The agent rewrites the target file in-place to Polars and creates a single pandas backup file.
+- It benchmarks before/after and reports the measured numbers (no placeholder speedup claims).
 
 ### Migrate Multiple Files
 
@@ -244,6 +288,56 @@ claude /pandas-polars-migration demo_pandas_pipeline.py
 
 # Compare results!
 ```
+
+### CLI Smoke Test (Jan 2026)
+
+Ran a clean-room smoke test in a standalone folder (`polars-migration-smoke-test/`) that:
+
+1. Generates synthetic CSVs (50K + 500K rows)
+2. Runs a pandas ETL pipeline + pytest
+3. Benchmarks baseline performance
+4. Runs Claude Code migration (`/pandas-polars-migration`)
+5. Re-runs pytest and benchmarks again
+
+Environment:
+
+- Claude Code: `2.1.14`
+- Python: `3.12.3`
+- pandas: `3.0.0`
+- polars: `1.37.1`
+
+Command used (non-interactive approvals):
+
+```bash
+claude --permission-mode bypassPermissions /pandas-polars-migration etl_pipeline.py
+```
+
+Also tested alternative CLIs/models to avoid hitting Claude usage limits:
+
+- OpenCode + `zai-coding-plan/glm-4.7` (attempted; agent wiring needs follow-up)
+- Gemini CLI + `gemini-3-flash-preview` (successful in-place migration; ~10x on 500k rows)
+
+Benchmark dataset: `transactions_big.csv` (500,000 rows), 7 runs, 2 warmups:
+
+| Version | Mean (ms) | Stdev (ms) | Speedup |
+|--------|----------:|-----------:|--------:|
+| Pandas baseline | 734.40 | 22.07 | 1.00x |
+| Polars (after Claude) | 60.34 | 3.47 | **12.17x** |
+
+Optimizations included in the command (only applied when safe/useful for large CSV pipelines):
+
+- Avoided datetime parsing by extracting `month` via string slice (`YYYY-MM`) when timestamps are ISO-like and only month is needed
+- Added explicit CSV schemas (skip type inference)
+- Projected only used columns (less I/O)
+- Removed intermediate `gross` column; computed `revenue` in one expression
+- Reused `mean/std` window stats to avoid recomputing
+- Used `.collect(engine="streaming")` when the plan supports streaming
+
+Artifacts produced by the command in the smoke-test folder:
+
+- `etl_pipeline_pandas_original.py` (auto-backup of original pandas file)
+- `MIGRATION_REPORT.md` (detailed notes)
+- `validate_migration.py` (output equivalence check)
 
 ---
 
