@@ -1,0 +1,10 @@
+# Pandas-Polars Migration Command Requirements
+
+# Core dependency for migrated code
+polars>=1.0.0
+
+# For running the demo/examples (pandas is needed to compare before/after)
+pandas>=2.0.0
+
+# Optional: For testing
+pytest>=7.0.0
