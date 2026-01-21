@@ -1,4 +1,4 @@
-# 🚀 Pandas → Polars Migration Command for Claude Code
+# Pandas to Polars Migration Command for Claude Code
 
 **Automatically benchmark, migrate, and optimize your pandas code to Polars.**
 
@@ -8,7 +8,7 @@
 
 ---
 
-## 🎯 What This Does
+## What This Does
 
 This Claude Code command automatically:
 
@@ -26,7 +26,7 @@ All in one command.
 
 ---
 
-## 📦 Installation
+## Installation
 
 ### Prerequisites
 
@@ -52,7 +52,7 @@ That's it! The command is now available in Claude Code.
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Basic Usage
 
@@ -76,7 +76,7 @@ claude /pandas-polars-migration pipeline1.py pipeline2.py
 
 ---
 
-## 🎬 Example
+## Example
 
 ### Before (Pandas)
 
@@ -143,14 +143,14 @@ Read CSV            245.50ms      89.20ms       2.75x
 Type Conversion     123.80ms      12.40ms       9.98x
 Aggregations        892.30ms      108.70ms      8.21x
 ───────────────────────────────────────────────────────────────
-🎯 TOTAL            1261.60ms     210.30ms      6.00x
+TOTAL               1261.60ms     210.30ms      6.00x
 ═══════════════════════════════════════════════════════════════
 
 OPTIMIZATIONS APPLIED:
-✓ Lazy evaluation with scan_csv() + collect()
-✓ Parallel expression execution (3 operations combined)
-✓ Window functions with .over() (1 replacement)
-✓ Removed index operations (0 instances)
+- Lazy evaluation with scan_csv() + collect()
+- Parallel expression execution (3 operations combined)
+- Window functions with .over() (1 replacement)
+- Removed index operations (0 instances)
 
 FILES MODIFIED:
 - demo_pandas_pipeline.py (23 lines changed)
@@ -163,7 +163,7 @@ Next steps:
 
 ---
 
-## 🧠 What Makes This Different
+## What Makes This Different
 
 This command doesn't just translate syntax—it writes **OPTIMIZED** Polars code:
 
@@ -182,7 +182,7 @@ All following official [Polars best practices](https://docs.pola.rs/user-guide/m
 
 ---
 
-## 💡 Perfect For
+## Perfect For
 
 - **ETL pipelines** - Speed up data transformations
 - **ML preprocessing** - Faster feature engineering
@@ -192,7 +192,7 @@ All following official [Polars best practices](https://docs.pola.rs/user-guide/m
 
 ---
 
-## 📋 How It Works
+## How It Works
 
 The command follows a 6-phase workflow:
 
@@ -205,7 +205,7 @@ The command follows a 6-phase workflow:
 
 ---
 
-## 🔧 Requirements
+## Requirements
 
 - **Python**: 3.8+
 - **Polars**: >= 1.0.0 (tested with 1.0.0)
@@ -216,7 +216,7 @@ The command was built using Polars 1.0.0 documentation and best practices.
 
 ---
 
-## 📚 Examples
+## Examples
 
 Check out the [`examples/`](examples/) directory for:
 
@@ -247,7 +247,7 @@ claude /pandas-polars-migration demo_pandas_pipeline.py
 
 ---
 
-## ⚠️ Important Notes
+## Important Notes
 
 - Always **backup your code** or work in a git branch
 - Polars syntax is **stricter than pandas** - type errors will surface
@@ -257,7 +257,7 @@ claude /pandas-polars-migration demo_pandas_pipeline.py
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Here's how you can help:
 
@@ -268,13 +268,13 @@ Contributions are welcome! Here's how you can help:
 
 ---
 
-## 📝 License
+## License
 
 MIT License - see [LICENSE](LICENSE) file for details.
 
 ---
 
-## 🔗 Links
+## Links
 
 - [Polars Documentation](https://docs.pola.rs/)
 - [Claude Code](https://github.com/anthropics/claude-code)
@@ -283,23 +283,23 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ---
 
-## 🌟 Show Your Support
+## Show Your Support
 
 If this command helped you, please:
 
-- ⭐ Star this repo
-- 📢 Share on social media
-- 💬 Share your benchmark results in Issues
-- 🤝 Contribute improvements
+- Star this repo
+- Share on social media
+- Share your benchmark results in Issues
+- Contribute improvements
 
 ---
 
-## 📧 Contact
+## Contact
 
 Questions or feedback? Open an issue or reach out on [LinkedIn](https://linkedin.com/in/tommcrojo).
 
 ---
 
-**Built with ❤️ by [tommcrojo](https://github.com/tommcrojo)**
+**Built by [tommcrojo](https://github.com/tommcrojo)**
 
 *Try it before scaling infrastructure. You might not need that bigger instance.*
