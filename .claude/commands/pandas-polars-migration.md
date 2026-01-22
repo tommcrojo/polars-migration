@@ -96,6 +96,32 @@ Use these official Polars resources for accurate syntax and best practices:
    - Measure: read time, transformation time, aggregation time, total time
    - Use `time.perf_counter()` for microsecond precision
 
+### Choose The Right ETL Mode (Router)
+
+Before rewriting code, classify the pipeline into one primary mode and optimize accordingly.
+
+Modes:
+
+1. **In-memory (returns a DataFrame)**
+   - Used by downstream Python code (APIs/notebooks); final result is materialized.
+2. **Batch ETL (writes datasets)**
+   - Terminal step writes CSV/NDJSON/IPC/Parquet and the job ends.
+3. **SQL-first**
+   - Pipeline is primarily expressed as SQL strings and execution is SQL-driven.
+
+Detection heuristics:
+
+- Terminal `to_parquet/to_csv/to_json/to_feather` or storage writes -> Batch ETL.
+- Returning a DataFrame to callers -> In-memory.
+- Large SQL strings / SQL engine as the primary representation -> SQL-first.
+
+If custom agents are installed (recommended), delegate via the Task tool:
+
+- `pandas-polars-router` (orchestrator)
+- `pandas-polars-inmemory`
+- `pandas-polars-batch`
+- `pandas-polars-sql`
+
 ## Phase 2: TEST VERIFICATION (PRE-MIGRATION)
 **CRITICAL: Verify business logic correctness before and after migration**
 
@@ -182,6 +208,32 @@ When the target is a file path (e.g. `some_pipeline.py`), you MUST:
 3. Avoid leaving multiple alternative implementations around (do NOT create both `*_polars.py` and `*_polars_optimized.py`).
 
 The goal is that the user runs their original entrypoint filename and immediately experiences the performance improvement.
+
+### Choose The Right Pipeline Mode (IMPORTANT)
+
+Before rewriting code, classify the pipeline into one primary mode and optimize accordingly:
+
+1. **In-memory (returns a DataFrame)**
+   - The function returns a DataFrame to Python or is used by downstream in-process code (APIs/notebooks).
+2. **Batch ETL (writes datasets)**
+   - The pipeline's terminal step writes CSV/NDJSON/IPC/Parquet (local or object storage) and the job ends.
+3. **SQL-driven**
+   - The pipeline is primarily expressed as SQL strings and execution is SQL-first.
+
+Detection heuristics:
+
+- Terminal `to_parquet/to_csv/to_json/to_feather` (or writing to S3/GCS/Azure) -> Batch ETL.
+- Returning a DataFrame to callers -> In-memory.
+- Large SQL strings as the main execution path -> SQL-driven.
+
+Mode-specific optimization:
+
+- **In-memory**: `scan_*` + lazy transforms + one final `.collect()` (prefer `engine="streaming"` for large data).
+- **Batch ETL**: prefer end-to-end lazy + `sink_*` so Polars can stream without materializing.
+  - Use `LazyFrame.sink_parquet/sink_csv/sink_ndjson/sink_ipc` instead of `collect() + write_*` when possible.
+  - For partitioned outputs, prefer partitioning APIs (e.g. `pl.PartitionBy` / sink partition args) over manual Python loops.
+- **SQL-driven**: if the pipeline is already SQL-first, consider Polars SQL (`SQLContext`/`.sql()`).
+  - Polars 1.37 includes significant SQL ORDER BY speedups; do not force a rewrite to SQL if code is not SQL-first.
 
 ### Core Polars Optimization Rules:
 1. **Use lazy evaluation**: Replace `pl.read_csv()` with `pl.scan_csv()` + `.collect()`

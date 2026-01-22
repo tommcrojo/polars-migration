@@ -60,6 +60,35 @@ Core migration rules:
 - Replace `groupby().transform(...)` with window expressions using `.over(...)`.
 - Avoid index logic entirely.
 
+### Pick The Right ETL Architecture (IMPORTANT)
+
+Before changing code, classify the pipeline and follow the matching strategy.
+
+Classify into exactly one primary mode:
+
+1. **In-memory (returns DataFrame)**
+   - The pipeline returns a DataFrame to Python or passes it to downstream in-process code.
+2. **Batch ETL (writes datasets)**
+   - The pipeline writes CSV/NDJSON/IPC/Parquet (locally or to object storage) and the job ends.
+3. **SQL-driven**
+   - The pipeline is expressed primarily as SQL (pandasql/duckdb/sql strings) and performance is dominated by ordering/joining in SQL.
+
+Detection heuristics:
+
+- If you see `to_parquet/to_csv/to_json/to_feather` (or writing to S3/GCS/Azure) as the terminal step -> **Batch ETL**.
+- If the top-level function is used by an API handler / notebook flow and returns a DataFrame -> **In-memory**.
+- If the code builds large SQL strings and uses a SQL engine as the main execution path -> **SQL-driven**.
+
+Mode-specific rules:
+
+- **In-memory**: use `scan_*` + lazy transformations, then end with exactly one `.collect()` (prefer `engine="streaming"` if it works).
+- **Batch ETL**: prefer lazy `sink_*` so the pipeline can remain streaming end-to-end.
+  - Use `LazyFrame.sink_parquet/sink_csv/sink_ndjson/sink_ipc` instead of `collect() + write_*` whenever possible.
+  - If the output is partitioned, use partitioning APIs (e.g. `pl.PartitionBy` / partition-by args supported by the sink) rather than manual loops.
+- **SQL-driven**: consider using Polars SQL (`SQLContext`/`DataFrame.sql`/`Series.sql`) to keep the query structure.
+  - Do not rewrite to SQL unless the code is already SQL-first.
+  - If the code is SQL-first and includes heavy ORDER BY, note Polars 1.37's SQL ordering speedups.
+
 Big-CSV optimization rules (apply ONLY when safe + useful):
 
 Apply when BOTH:

@@ -74,6 +74,21 @@ curl -o ~/.claude/commands/pandas-polars-migration.md \
 pip install "polars>=1.0.0"
 ```
 
+### Install Router + Mode-Specific Agents (Recommended)
+
+The command works by itself, but for the best UX (and to better handle different pipeline architectures), install the bundled Claude Code agents too:
+
+```bash
+git clone https://github.com/tommcrojo/polars-migration.git
+cd polars-migration/pandas-polars-migration-claude
+./install.sh
+```
+
+This installs:
+
+- `~/.claude/commands/pandas-polars-migration.md`
+- `~/.claude/agents/pandas-polars-*.md` (router + in-memory/batch/sql specialists)
+
 That's it! The command is now available in Claude Code.
 
 ---
