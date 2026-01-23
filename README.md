@@ -224,7 +224,7 @@ Next steps:
 
 ## What Makes This Different
 
-This command doesn't just translate syntax—it writes **OPTIMIZED** Polars code:
+We write **OPTIMIZED** Polars code:
 
 ### Optimizations Applied
 
