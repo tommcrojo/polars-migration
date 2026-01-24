@@ -133,15 +133,14 @@ That's it. The command is now available in Claude Code.
 ### Quick Demo (for recording/testing)
 ```bash
 git clone https://github.com/tommcrojo/pandas-polars-migration-claude.git
-cd pandas-polars-migration-claude/smoke-test
+cd pandas-polars-migration-claude/examples/million-test
 
-# Generate 500K test data + run migration
+# Generate ~1M rows + run migration
 python3 generate_data.py
-python3 demo_pandas.py
 claude /pandas-polars-migration demo_pandas.py
 ```
 
-Uses 500K rows to show **10-12x speedup**. See [`smoke-test/`](smoke-test/) for video script and recording tips.
+See [`examples/million-test/`](examples/million-test/) for the video script and recording tips.
 
 ### Full Example
 ```bash
